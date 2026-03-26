@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prompt Injection DB</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="storage-banner" class="storage-banner" hidden>
+    Los datos se guardan en el navegador. Para persistir en <code>data.json</code>, arranca el servidor (<code>npm start</code>) y abre <code>http://localhost:3000</code>.
+  </div>
+  <div class="container">
+    <header>
+      <h1>Prompt Injection DB</h1>
+      <p class="subtitle">Base de datos de inyecciones de prompt</p>
+    </header>
+
+    <nav class="view-tabs" role="tablist">
+      <button type="button" class="view-tab active" data-view="new" role="tab" aria-selected="true">Nuevo prompt</button>
+      <button type="button" class="view-tab" data-view="list" role="tab" aria-selected="false">Ataques guardados</button>
+      <button type="button" class="view-tab" data-view="json" role="tab" aria-selected="false">Vista JSON</button>
+    </nav>
+
+    <div class="view-panels">
+      <section id="panel-new" class="view-panel active" data-panel="new" role="tabpanel">
+        <form id="injection-form" class="form">
+          <div class="field">
+            <label for="prompt">Prompt</label>
+            <textarea id="prompt" name="prompt" rows="8" placeholder="Código o texto del prompt (soporta símbolos y caracteres especiales)…"></textarea>
+            <span class="hint">Se guardará correctamente escapado en JSON.</span>
+          </div>
+          <div class="field field-with-suggestions">
+            <label for="type">Tipo</label>
+            <div class="type-input-row">
+              <input type="text" id="type" name="type" placeholder="Escribe y pulsa Enter o elige uno abajo" autocomplete="off">
+              <div id="type-tags" class="tags tags-inline" aria-live="polite"></div>
+            </div>
+            <div id="type-suggestions" class="suggestions" role="listbox" hidden></div>
+            <div id="existing-types-wrap" class="existing-options" hidden>
+              <span class="existing-options-label">Tipos existentes — clic para añadir:</span>
+              <div id="existing-types" class="existing-pills"></div>
+            </div>
+            <p id="no-types-hint" class="hint hint-empty" hidden>Aún no hay tipos guardados. Escribe uno y pulsa Enter.</p>
+            <span class="hint">Enter añade el tag y pasa al siguiente campo.</span>
+          </div>
+          <div class="field field-with-suggestions">
+            <label for="model">Modelo</label>
+            <div class="type-input-row">
+              <input type="text" id="model" name="model" placeholder="Escribe y pulsa Enter o elige abajo" autocomplete="off">
+              <div id="model-tags" class="tags tags-inline" aria-live="polite"></div>
+            </div>
+            <div id="model-suggestions" class="suggestions" role="listbox" hidden></div>
+            <div id="existing-models-wrap" class="existing-options" hidden>
+              <span class="existing-options-label">Modelos existentes — clic para añadir:</span>
+              <div id="existing-models" class="existing-pills"></div>
+            </div>
+            <p id="no-models-hint" class="hint hint-empty" hidden>Aún no hay modelos guardados. Escribe uno y pulsa Enter.</p>
+            <span class="hint">Enter añade el modelo y pasa al siguiente campo.</span>
+          </div>
+          <div class="field">
+            <label for="source">Fuente</label>
+            <input type="url" id="source" name="source" placeholder="URL o referencia (repo, artículo, etc.)">
+            <span class="hint">Origen del prompt (link, repo, paper…).</span>
+          </div>
+          <p id="duplicate-prompt-msg" class="form-message form-message-error" role="alert" hidden>Este prompt ya existe en la base de datos.</p>
+          <div class="actions">
+            <button type="submit" id="btn-add">Añadir a la base de datos</button>
+            <button type="button" id="btn-cancel-edit" class="btn-ghost" hidden>Cancelar edición</button>
+            <button type="button" id="btn-download">Descargar JSON</button>
+          </div>
+          <p id="editing-indicator" class="editing-indicator" hidden>Editando: <span id="editing-id"></span></p>
+        </form>
+      </section>
+
+      <section id="panel-list" class="view-panel" data-panel="list" role="tabpanel" hidden>
+        <div class="entries-section">
+          <div class="search-row">
+            <input type="search" id="search-entries" class="search-input" placeholder="Buscar por prompt, tipo, modelo, fuente o id…" autocomplete="off">
+            <span id="search-count" class="search-count" aria-live="polite"></span>
+          </div>
+          <div id="entries-list" class="entries-list"></div>
+          <div id="entry-detail" class="entry-detail" hidden>
+            <div class="entry-detail-header">
+              <h3>Detalle</h3>
+              <button type="button" id="btn-close-detail" class="btn-icon" aria-label="Cerrar">×</button>
+            </div>
+            <div id="entry-detail-body"></div>
+            <div class="entry-detail-actions">
+              <button type="button" id="btn-edit-entry" class="btn-ghost">Editar</button>
+              <button type="button" id="btn-delete-entry" class="btn-danger">Eliminar</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-json" class="view-panel" data-panel="json" role="tabpanel" hidden>
+        <div class="json-preview" id="json-preview-section">
+          <pre id="json-output"><code>[]</code></pre>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

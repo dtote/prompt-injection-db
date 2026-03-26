@@ -1,0 +1,16 @@
+{
+  "name": "prompt-injection-db",
+  "version": "1.0.0",
+  "description": "Base de datos de prompt injections con persistencia en JSON",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "NODE_ENV=development node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "chokidar": "^4.0.1"
+  }
+}
