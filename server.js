@@ -19,6 +19,47 @@ const link = (url) => `${c.cyan}${url}${c.reset}`;
 
 app.use(express.json({ limit: '5mb' }));
 
+/**
+ * Normaliza escapes literales que vienen de JSON copiado/pegado.
+ * Convierte:
+ * - \\n -> salto de línea real
+ * - \\t -> tab real
+ * - \\r -> retorno de carro real
+ *
+ * Importante: se intenta primero con doble backslash para soportar textos tipo \\n.
+ */
+function normalizePromptEscapes(input) {
+  if (typeof input !== 'string') return input;
+  let out = input;
+  if (!out.includes('\\n') && !out.includes('\\t') && !out.includes('\\r')) return out;
+
+  out = out
+    .replace(/\\\\n/g, '\n')
+    .replace(/\\\\t/g, '\t')
+    .replace(/\\\\r/g, '\r')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t')
+    .replace(/\\r/g, '\r');
+  return out;
+}
+
+function normalizeDataArray(data) {
+  const arr = Array.isArray(data) ? data : [];
+  let changed = false;
+  const normalized = arr.map((entry) => {
+    if (!entry || typeof entry !== 'object') return entry;
+    if (typeof entry.prompt === 'string') {
+      const n = normalizePromptEscapes(entry.prompt);
+      if (n !== entry.prompt) {
+        changed = true;
+        return { ...entry, prompt: n };
+      }
+    }
+    return entry;
+  });
+  return { data: normalized, changed };
+}
+
 // En desarrollo, servir index.html con el script de live reload inyectado (una sola URL)
 if (isDev) {
   const indexPath = path.join(__dirname, 'index.html');
@@ -55,8 +96,8 @@ function readData() {
 }
 
 function writeData(data) {
-  if (!Array.isArray(data)) data = [];
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+  const { data: normalized } = normalizeDataArray(data);
+  fs.writeFileSync(DATA_FILE, JSON.stringify(normalized, null, 2), 'utf8');
 }
 
 app.get('/api/data', (req, res) => {
@@ -69,6 +110,16 @@ app.post('/api/data', (req, res) => {
   writeData(data);
   res.json({ ok: true });
 });
+
+// Migración: arreglar prompts existentes con escapes literales doble-escapados
+try {
+  const initial = readData();
+  const migration = normalizeDataArray(initial);
+  if (migration.changed) {
+    writeData(migration.data);
+    console.log(`${c.dim}↻${c.reset} ${c.yellow}Normalizando escapes en data.json${c.reset}`);
+  }
+} catch (_) {}
 
 // Live reload en desarrollo: SSE para notificar cambios en archivos
 let reloadClients = [];
