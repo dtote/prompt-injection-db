@@ -186,6 +186,26 @@ function getUniqueModels() {
 }
 
 /**
+ * Normaliza escapes literales que vienen de JSON copiado/pegado en el textarea.
+ * Convierte:
+ * - \\n -> salto de línea real
+ * - \\t -> tab real
+ * - \\r -> retorno de carro real
+ */
+function normalizePromptEscapes(input) {
+  if (typeof input !== 'string') return input;
+  let out = input;
+  if (!out.includes('\\n') && !out.includes('\\t') && !out.includes('\\r')) return out;
+  return out
+    .replace(/\\\\n/g, '\n')
+    .replace(/\\\\t/g, '\t')
+    .replace(/\\\\r/g, '\r')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t')
+    .replace(/\\r/g, '\r');
+}
+
+/**
  * Añade un tipo a la lista confirmada y vacía el input para seguir escribiendo.
  */
 function appendType(tag) {
@@ -346,7 +366,7 @@ function showModelSuggestions() {
  * Construye el objeto de la entrada actual a partir del formulario (sin id).
  */
 function getCurrentEntryData() {
-  const prompt = promptInput.value.trim();
+  const prompt = normalizePromptEscapes(promptInput.value.trim());
   const types = [...typeTagsList, ...parseTypes(typeInput.value)].filter(Boolean);
   const models = [...modelTagsList, ...parseModels(modelInput.value)].filter(Boolean);
   const source = sourceInput.value.trim() || undefined;
@@ -701,7 +721,7 @@ function closeDetail() {
  * Rellena el formulario con una entrada (para editar).
  */
 function fillForm(entry) {
-  promptInput.value = entry.prompt || '';
+  promptInput.value = normalizePromptEscapes(entry.prompt || '');
   typeTagsList = Array.isArray(entry.type) ? [...entry.type] : entry.type ? [entry.type] : [];
   modelTagsList = Array.isArray(entry.model) ? [...entry.model] : entry.model ? [entry.model] : [];
   typeInput.value = '';
