@@ -24,6 +24,9 @@ const editingIndicator = document.getElementById('editing-indicator');
 const editingIdSpan = document.getElementById('editing-id');
 const searchInput = document.getElementById('search-entries');
 const searchCount = document.getElementById('search-count');
+const filterSortEl = document.getElementById('filter-sort');
+const filterTypeEl = document.getElementById('filter-type');
+const filterModelEl = document.getElementById('filter-model');
 const typeSuggestionsEl = document.getElementById('type-suggestions');
 const modelSuggestionsEl = document.getElementById('model-suggestions');
 
@@ -33,6 +36,11 @@ let database = [];
 /** Cuántos ítems mostrar en la lista antes de "Mostrar más" (para no cargar 200 de golpe). */
 const LIST_PAGE_SIZE = 40;
 let listVisibleCount = LIST_PAGE_SIZE;
+
+/** Filtros activos en la lista. */
+let filterSort = 'desc';
+let filterType = '';
+let filterModel = '';
 
 /** Clave localStorage por si el servidor no está disponible. */
 const STORAGE_KEY = 'prompt-injection-db';
@@ -558,16 +566,43 @@ function filterEntries(entries, query) {
 }
 
 /**
- * Renderiza la lista de ataques (cards), aplicando el filtro de búsqueda.
+ * Rellena los selects de filtro con los tipos y modelos únicos actuales.
+ */
+function renderFilterSelects() {
+  if (!filterTypeEl || !filterModelEl) return;
+
+  const currentType = filterTypeEl.value;
+  const currentModel = filterModelEl.value;
+
+  filterTypeEl.innerHTML = '<option value="">Todos los tipos</option>' +
+    getUniqueTypes().map((t) => `<option value="${escapeAttr(t)}"${t === currentType ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('');
+
+  filterModelEl.innerHTML = '<option value="">Todos los modelos</option>' +
+    getUniqueModels().map((m) => `<option value="${escapeAttr(m)}"${m === currentModel ? ' selected' : ''}>${escapeHtml(m)}</option>`).join('');
+}
+
+/**
+ * Renderiza la lista de ataques (cards), aplicando búsqueda, filtros y orden.
  */
 function renderEntriesList() {
   const query = getSearchQuery();
-  const filtered = filterEntries(database, query);
+  let filtered = filterEntries(database, query);
 
+  if (filterType) {
+    filtered = filtered.filter((e) => Array.isArray(e.type) && e.type.includes(filterType));
+  }
+  if (filterModel) {
+    filtered = filtered.filter((e) => {
+      const models = Array.isArray(e.model) ? e.model : (e.model ? [e.model] : []);
+      return models.includes(filterModel);
+    });
+  }
+
+  const hasActiveFilter = query || filterType || filterModel;
   if (searchCount) {
     if (database.length === 0) {
       searchCount.textContent = '';
-    } else if (query && filtered.length !== database.length) {
+    } else if (hasActiveFilter && filtered.length !== database.length) {
       searchCount.textContent = `Mostrando ${filtered.length} de ${database.length}`;
     } else {
       searchCount.textContent = `${database.length} ${database.length === 1 ? 'ataque' : 'ataques'}`;
@@ -584,7 +619,11 @@ function renderEntriesList() {
     return;
   }
 
-  const ordered = [...filtered].reverse();
+  const ordered = [...filtered].sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return filterSort === 'asc' ? ta - tb : tb - ta;
+  });
   const toShow = ordered.slice(0, listVisibleCount);
   const hasMore = ordered.length > listVisibleCount;
   const remaining = ordered.length - listVisibleCount;
@@ -651,6 +690,8 @@ function renderEntriesList() {
       renderEntriesList();
     });
   }
+
+  renderFilterSelects();
 }
 
 function escapeHtml(str) {
@@ -701,6 +742,12 @@ function openDetail(id) {
     <div class="detail-row">
       <div class="detail-label">Fuente</div>
       <div class="detail-value">${entry.source.startsWith('http') ? `<a href="${escapeAttr(entry.source)}" target="_blank" rel="noopener">${escapeHtml(entry.source)}</a>` : escapeHtml(entry.source)}</div>
+    </div>
+    ` : ''}
+    ${entry.createdAt ? `
+    <div class="detail-row">
+      <div class="detail-label">Añadido</div>
+      <div class="detail-value detail-date">${escapeHtml(new Date(entry.createdAt).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }))}</div>
     </div>
     ` : ''}
   `;
@@ -821,7 +868,7 @@ async function saveEntry(e) {
     }
     cancelEditing();
   } else {
-    database.push({ id: hash, ...data });
+    database.push({ id: hash, ...data, createdAt: new Date().toISOString() });
     typeTagsList = [];
     modelTagsList = [];
     form.reset();
@@ -915,6 +962,30 @@ sourceInput.addEventListener('input', updateJsonPreview);
 
 if (searchInput) {
   searchInput.addEventListener('input', () => {
+    listVisibleCount = LIST_PAGE_SIZE;
+    renderEntriesList();
+  });
+}
+
+if (filterSortEl) {
+  filterSortEl.addEventListener('change', () => {
+    filterSort = filterSortEl.value;
+    listVisibleCount = LIST_PAGE_SIZE;
+    renderEntriesList();
+  });
+}
+
+if (filterTypeEl) {
+  filterTypeEl.addEventListener('change', () => {
+    filterType = filterTypeEl.value;
+    listVisibleCount = LIST_PAGE_SIZE;
+    renderEntriesList();
+  });
+}
+
+if (filterModelEl) {
+  filterModelEl.addEventListener('change', () => {
+    filterModel = filterModelEl.value;
     listVisibleCount = LIST_PAGE_SIZE;
     renderEntriesList();
   });

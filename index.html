@@ -79,6 +79,18 @@
             <input type="search" id="search-entries" class="search-input" placeholder="Buscar por prompt, tipo, modelo, fuente o id…" autocomplete="off">
             <span id="search-count" class="search-count" aria-live="polite"></span>
           </div>
+          <div class="filter-row">
+            <select id="filter-sort" class="filter-select" aria-label="Ordenar por">
+              <option value="desc">Más reciente primero</option>
+              <option value="asc">Más antiguo primero</option>
+            </select>
+            <select id="filter-type" class="filter-select" aria-label="Filtrar por tipo">
+              <option value="">Todos los tipos</option>
+            </select>
+            <select id="filter-model" class="filter-select" aria-label="Filtrar por modelo">
+              <option value="">Todos los modelos</option>
+            </select>
+          </div>
           <div id="entries-list" class="entries-list"></div>
           <div id="entry-detail" class="entry-detail" hidden>
             <div class="entry-detail-header">
