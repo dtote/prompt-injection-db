@@ -1,6 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = parseInt(process.env.PORT, 10) || 3000;
@@ -60,6 +61,23 @@ function normalizeDataArray(data) {
   return { data: normalized, changed };
 }
 
+function promptHash(prompt) {
+  return crypto.createHash('sha256').update((prompt || '').trim(), 'utf8').digest('hex');
+}
+
+function assignHashes(arr) {
+  if (!Array.isArray(arr)) return { data: [], changed: false };
+  let changed = false;
+  const data = arr.map((entry) => {
+    if (!entry || typeof entry !== 'object') return entry;
+    const expectedId = promptHash(entry.prompt);
+    if (entry.id === expectedId) return entry;
+    changed = true;
+    return { ...entry, id: expectedId };
+  });
+  return { data, changed };
+}
+
 // En desarrollo, servir index.html con el script de live reload inyectado (una sola URL)
 if (isDev) {
   const indexPath = path.join(__dirname, 'index.html');
@@ -97,7 +115,8 @@ function readData() {
 
 function writeData(data) {
   const { data: normalized } = normalizeDataArray(data);
-  fs.writeFileSync(DATA_FILE, JSON.stringify(normalized, null, 2), 'utf8');
+  const { data: hashed } = assignHashes(normalized);
+  fs.writeFileSync(DATA_FILE, JSON.stringify(hashed, null, 2), 'utf8');
 }
 
 app.get('/api/data', (req, res) => {
@@ -105,10 +124,9 @@ app.get('/api/data', (req, res) => {
 });
 
 app.post('/api/data', (req, res) => {
-  const body = req.body;
-  const data = Array.isArray(body) ? body : [];
+  const data = Array.isArray(req.body) ? req.body : [];
   writeData(data);
-  res.json({ ok: true });
+  res.json(readData());
 });
 
 // Migración: arreglar prompts existentes con escapes literales doble-escapados
@@ -118,6 +136,16 @@ try {
   if (migration.changed) {
     writeData(migration.data);
     console.log(`${c.dim}↻${c.reset} ${c.yellow}Normalizando escapes en data.json${c.reset}`);
+  }
+} catch (_) {}
+
+// Migración: asignar hashes SHA-256 como IDs (reemplaza UUIDs)
+try {
+  const initial = readData();
+  const { data: hashed, changed } = assignHashes(initial);
+  if (changed) {
+    writeData(hashed);
+    console.log(`${c.dim}↻${c.reset} ${c.yellow}Asignando hashes SHA-256 en data.json${c.reset}`);
   }
 } catch (_) {}
 

@@ -86,6 +86,13 @@ async function saveToServer() {
       body: JSON.stringify(database),
     });
     if (res.ok) {
+      const saved = await res.json();
+      if (Array.isArray(saved)) {
+        database = saved;
+        if (selectedId && !database.some((e) => e.id === selectedId)) closeDetail();
+        renderEntriesList();
+        updateJsonPreview();
+      }
       usingLocalStorageOnly = false;
       showStorageBanner(false);
       return;
@@ -143,11 +150,14 @@ let typeTagsList = [];
 let modelTagsList = [];
 
 /**
- * Genera un identificador único para cada ataque.
- * @returns {string}
+ * Genera un hash SHA-256 del texto del prompt (normalizado).
+ * @returns {Promise<string>}
  */
-function generateId() {
-  return crypto.randomUUID ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+async function promptHash(prompt) {
+  const normalized = (prompt || '').trim();
+  const encoded = new TextEncoder().encode(normalized);
+  const buf = await crypto.subtle.digest('SHA-256', encoded);
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
@@ -475,7 +485,7 @@ function updateJsonPreview() {
   const current = getCurrentEntryData();
   const hasCurrent = Object.keys(current).length > 0;
   const display = hasCurrent
-    ? [...database.map((e) => ({ ...e })), { ...current, id: editingId || generateId() }]
+    ? [...database.map((e) => ({ ...e })), { ...current, id: editingId || '(pending)' }]
     : database;
   const codeEl = jsonOutput.querySelector('code');
   if (!codeEl) return;
@@ -772,16 +782,6 @@ function cancelEditing() {
   renderEntriesList();
 }
 
-/**
- * Comprueba si ya existe una entrada con el mismo texto de prompt (evitar duplicados).
- * Al editar, se ignora la entrada actual.
- */
-function isDuplicatePrompt(promptText, excludeId) {
-  const normalized = (promptText || '').trim();
-  if (!normalized) return false;
-  return database.some((e) => e.id !== excludeId && (e.prompt || '').trim() === normalized);
-}
-
 function showDuplicatePromptMessage() {
   const el = document.getElementById('duplicate-prompt-msg');
   if (el) el.hidden = false;
@@ -795,7 +795,7 @@ function hideDuplicatePromptMessage() {
 /**
  * Añade o actualiza la entrada.
  */
-function saveEntry(e) {
+async function saveEntry(e) {
   e.preventDefault();
   const data = getCurrentEntryData();
   if (!data.prompt) {
@@ -803,7 +803,10 @@ function saveEntry(e) {
     return;
   }
 
-  if (!editingId && isDuplicatePrompt(data.prompt, null)) {
+  const hash = await promptHash(data.prompt);
+
+  const isDuplicate = database.some((entry) => entry.id === hash && entry.id !== editingId);
+  if (isDuplicate) {
     showDuplicatePromptMessage();
     promptInput.focus();
     return;
@@ -812,13 +815,13 @@ function saveEntry(e) {
   hideDuplicatePromptMessage();
 
   if (editingId) {
-    const index = database.findIndex((e) => e.id === editingId);
+    const index = database.findIndex((entry) => entry.id === editingId);
     if (index !== -1) {
-      database[index] = { ...database[index], ...data };
+      database[index] = { ...database[index], ...data, id: hash };
     }
     cancelEditing();
   } else {
-    database.push({ id: generateId(), ...data });
+    database.push({ id: hash, ...data });
     typeTagsList = [];
     modelTagsList = [];
     form.reset();
