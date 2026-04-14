@@ -24,8 +24,9 @@ const editingIndicator = document.getElementById('editing-indicator');
 const editingIdSpan = document.getElementById('editing-id');
 const searchInput = document.getElementById('search-entries');
 const searchCount = document.getElementById('search-count');
-const filterSortEl = document.getElementById('filter-sort');
-const filterTypeEl = document.getElementById('filter-type');
+const filterSortEl     = document.getElementById('filter-sort');
+const filterTypeEl     = document.getElementById('filter-type');
+const pageSizeSelectEl = document.getElementById('page-size-select');
 const filterModelEl = document.getElementById('filter-model');
 const typeSuggestionsEl = document.getElementById('type-suggestions');
 const modelSuggestionsEl = document.getElementById('model-suggestions');
@@ -33,9 +34,9 @@ const modelSuggestionsEl = document.getElementById('model-suggestions');
 /** Base de datos en memoria. Se persiste en data.json vía API. */
 let database = [];
 
-/** Cuántos ítems mostrar en la lista antes de "Mostrar más" (para no cargar 200 de golpe). */
-const LIST_PAGE_SIZE = 40;
-let listVisibleCount = LIST_PAGE_SIZE;
+/** Paginación. */
+let pageSize    = 20;
+let currentPage = 1;
 
 /** Filtros activos en la lista. */
 let filterSort = 'desc';
@@ -624,14 +625,13 @@ function renderEntriesList() {
     const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
     return filterSort === 'asc' ? ta - tb : tb - ta;
   });
-  const toShow = ordered.slice(0, listVisibleCount);
-  const hasMore = ordered.length > listVisibleCount;
-  const remaining = ordered.length - listVisibleCount;
+  const totalPages = Math.max(1, Math.ceil(ordered.length / pageSize));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start  = (currentPage - 1) * pageSize;
+  const toShow = ordered.slice(start, start + pageSize);
 
   entriesList.innerHTML =
-    toShow
-      .map(
-        (entry) => `
+    toShow.map((entry) => `
     <div class="entry-card-wrap" data-id="${escapeAttr(entry.id)}">
       <button type="button" class="entry-card" title="Ver detalle">
         <div class="entry-card-header">
@@ -648,14 +648,13 @@ function renderEntriesList() {
       <button type="button" class="entry-card-edit" title="Editar">Editar</button>
       <button type="button" class="entry-card-delete" title="Eliminar" data-id="${escapeAttr(entry.id)}">Eliminar</button>
     </div>
-  `
-      )
-      .join('') +
-    (hasMore
-      ? `<div class="list-load-more">
-          <button type="button" id="btn-show-more" class="btn-show-more">Mostrar más (${remaining} restantes)</button>
-        </div>`
-      : '');
+  `).join('') +
+    (totalPages > 1 ? `
+    <div class="pagination">
+      <button type="button" class="pagination-btn" id="btn-prev-page" ${currentPage === 1 ? 'disabled' : ''}>← Anterior</button>
+      <span class="pagination-info">Página ${currentPage} de ${totalPages}</span>
+      <button type="button" class="pagination-btn" id="btn-next-page" ${currentPage === totalPages ? 'disabled' : ''}>Siguiente →</button>
+    </div>` : '');
 
   entriesList.querySelectorAll('.entry-card').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -683,13 +682,11 @@ function renderEntriesList() {
     });
   });
 
-  const btnShowMore = document.getElementById('btn-show-more');
-  if (btnShowMore) {
-    btnShowMore.addEventListener('click', () => {
-      listVisibleCount += LIST_PAGE_SIZE;
-      renderEntriesList();
-    });
-  }
+  const btnPrev = document.getElementById('btn-prev-page');
+  if (btnPrev) btnPrev.addEventListener('click', () => { currentPage--; renderEntriesList(); });
+
+  const btnNext = document.getElementById('btn-next-page');
+  if (btnNext) btnNext.addEventListener('click', () => { currentPage++; renderEntriesList(); });
 
   renderFilterSelects();
 }
@@ -962,7 +959,7 @@ sourceInput.addEventListener('input', updateJsonPreview);
 
 if (searchInput) {
   searchInput.addEventListener('input', () => {
-    listVisibleCount = LIST_PAGE_SIZE;
+    currentPage = 1;
     renderEntriesList();
   });
 }
@@ -970,7 +967,7 @@ if (searchInput) {
 if (filterSortEl) {
   filterSortEl.addEventListener('change', () => {
     filterSort = filterSortEl.value;
-    listVisibleCount = LIST_PAGE_SIZE;
+    currentPage = 1;
     renderEntriesList();
   });
 }
@@ -978,7 +975,7 @@ if (filterSortEl) {
 if (filterTypeEl) {
   filterTypeEl.addEventListener('change', () => {
     filterType = filterTypeEl.value;
-    listVisibleCount = LIST_PAGE_SIZE;
+    currentPage = 1;
     renderEntriesList();
   });
 }
@@ -986,7 +983,15 @@ if (filterTypeEl) {
 if (filterModelEl) {
   filterModelEl.addEventListener('change', () => {
     filterModel = filterModelEl.value;
-    listVisibleCount = LIST_PAGE_SIZE;
+    currentPage = 1;
+    renderEntriesList();
+  });
+}
+
+if (pageSizeSelectEl) {
+  pageSizeSelectEl.addEventListener('change', () => {
+    pageSize    = parseInt(pageSizeSelectEl.value, 10);
+    currentPage = 1;
     renderEntriesList();
   });
 }

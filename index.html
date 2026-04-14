@@ -90,6 +90,14 @@
             <select id="filter-model" class="filter-select" aria-label="Filtrar por modelo">
               <option value="">Todos los modelos</option>
             </select>
+            <label class="page-size-label">
+              Mostrar
+              <select id="page-size-select" class="filter-select filter-select--narrow" aria-label="Registros por página">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+              </select>
+            </label>
           </div>
           <div id="entries-list" class="entries-list"></div>
           <div id="entry-detail" class="entry-detail" hidden>
